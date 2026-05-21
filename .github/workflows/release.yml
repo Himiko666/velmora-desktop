@@ -93,6 +93,9 @@ jobs:
             Site officiel : https://velmora.cc
           releaseDraft: true
           prerelease: false
+          # Upload aussi les fichiers .sig (signatures Ed25519) à côté des
+          # bundles pour que tauri-plugin-updater puisse vérifier les MAJ.
+          includeUpdaterJson: true
           args: ${{ matrix.args }}
 
       - name: Upload artefacts (build manuel)
