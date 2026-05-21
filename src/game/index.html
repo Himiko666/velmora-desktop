@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Velmora</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #0a0a0d;
+        color: #c8b67a;
+        font-family: Georgia, serif;
+        overflow: hidden;
+      }
+      .splash {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        gap: 1.2rem;
+      }
+      .splash h1 {
+        font-size: 2rem;
+        letter-spacing: 0.4em;
+        margin: 0;
+        text-shadow: 0 0 32px rgba(200,182,122,0.35);
+      }
+      .splash p { opacity: 0.6; font-size: 0.85rem; }
+      .spinner {
+        width: 36px; height: 36px;
+        border: 3px solid rgba(200,182,122,0.2);
+        border-top-color: #c8b67a;
+        border-radius: 50%;
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <div class="splash">
+      <h1>VELMORA</h1>
+      <div class="spinner"></div>
+      <p>Ouverture des portes du royaume…</p>
+    </div>
+    <script>
+      // Charge l'URL du jeu fournie par le backend Rust.
+      (async () => {
+        try {
+          const url = await window.__TAURI__.core.invoke("game_url");
+          window.location.replace(url);
+        } catch (e) {
+          window.location.replace("https://velmora.cc");
+        }
+      })();
+    </script>
+  </body>
+</html>

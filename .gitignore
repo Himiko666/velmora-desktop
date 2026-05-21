@@ -1,0 +1,34 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
+src-tauri/Cargo.lock
+
+# Build artefacts
+dist/
+*.dmg
+*.msi
+*.exe
+*.AppImage
+*.deb
+*.rpm
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Secrets / signing
+*.p12
+*.pfx
+*.cer
+*.key
+.env
+.env.local
+TAURI_SIGNING_PRIVATE_KEY*

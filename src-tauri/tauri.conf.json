@@ -1,0 +1,93 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Velmora",
+  "version": "0.1.0",
+  "identifier": "cc.velmora.desktop",
+  "build": {
+    "frontendDist": "../src"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "launcher",
+        "title": "Velmora — Launcher",
+        "url": "launcher/index.html",
+        "width": 1100,
+        "height": 700,
+        "minWidth": 960,
+        "minHeight": 620,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "skipTaskbar": false,
+        "backgroundColor": "#0b0b0f"
+      },
+      {
+        "label": "game",
+        "title": "Velmora",
+        "url": "game/index.html",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1024,
+        "minHeight": 640,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "visible": false,
+        "decorations": true,
+        "backgroundColor": "#0b0b0f"
+      }
+    ],
+    "security": {
+      "csp": null,
+      "dangerousDisableAssetCspModification": false
+    },
+    "withGlobalTauri": true
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "Game",
+    "shortDescription": "Velmora — MMORPG de stratégie médiéval-fantastique",
+    "longDescription": "Launcher de bureau pour Velmora. Connexion native, actualités du royaume, notifications de fin de cooldown, mises à jour automatiques.",
+    "copyright": "© Velmora",
+    "homepage": "https://velmora.cc",
+    "publisher": "Velmora",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [],
+    "externalBin": [],
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0", "libayatana-appindicator3-1"]
+      }
+    },
+    "macOS": {
+      "frameworks": [],
+      "minimumSystemVersion": "10.15",
+      "exceptionDomain": "velmora.cc"
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "dialog": false,
+      "pubkey": "REMPLACE_PAR_CLE_PUBLIQUE_GENEREE_AVEC_tauri_signer_generate",
+      "endpoints": [
+        "https://velmora.cc/desktop/latest.json"
+      ]
+    }
+  }
+}

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Velmora — Launcher (preview V2.1)</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <style>
+      :root {
+        --font-display: "Liberation Serif", "DejaVu Serif", Georgia, serif;
+        --font-body: "Liberation Sans", "DejaVu Sans", Arial, sans-serif;
+      }
+      * { animation: none !important; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="update-banner">
+        <span>Une nouvelle version du launcher est disponible (v0.2.0).</span>
+        <button class="btn-gold">Installer</button>
+      </div>
+
+      <section id="view-home" class="view">
+        <header class="topbar">
+          <div class="logo-mini">VELMORA</div>
+          <div class="server-status">
+            <span class="status-dot online"></span>
+            <span>En jeu</span>
+            <span class="dim">· 137 en ligne</span>
+          </div>
+          <div class="topbar-right">
+            <button class="icon-btn" title="Rafraîchir">↻</button>
+            <button class="icon-btn" title="Paramètres">⚙</button>
+            <button class="icon-btn" title="Déconnexion">⎋</button>
+          </div>
+        </header>
+
+        <div class="home-shell">
+          <aside class="sidebar">
+            <div class="profile-card">
+              <div class="profile-portrait" style="background:radial-gradient(circle at 30% 30%,#5a3e22 0%,#2a1a10 70%,#0a0a0d 100%); display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-size:2.2rem; color:#c8b67a;">A</div>
+              <div class="profile-info">
+                <div class="profile-name">Aldéric d'Eldenmoor</div>
+                <div class="profile-dyn">Ordre des Aigles d'Argent</div>
+                <div class="profile-meta">
+                  <span class="badge">Lv 17</span>
+                  <span class="badge gold">⚜ 2 480</span>
+                </div>
+              </div>
+            </div>
+
+            <nav class="tabs">
+              <button class="tab active">Actualités</button>
+              <button class="tab">Notes de patch</button>
+              <button class="tab">Évènements</button>
+            </nav>
+
+            <div class="quick-links">
+              <div class="quick-title">Royaume</div>
+              <div class="quick-list">
+                <button class="quick-link"><span class="ql-icon">✦</span><span>Forum</span></button>
+                <button class="quick-link"><span class="ql-icon">⚔</span><span>Discord</span></button>
+                <button class="quick-link"><span class="ql-icon">✎</span><span>Codex</span></button>
+                <button class="quick-link"><span class="ql-icon">✚</span><span>Soutien</span></button>
+              </div>
+            </div>
+
+            <div class="next-maint">Prochaine maintenance : 28 mai, 03:00</div>
+          </aside>
+
+          <main class="content">
+            <section class="tab-pane active">
+              <h2>Actualités du royaume</h2>
+              <div class="news-list">
+                <div class="news-item">
+                  <div class="news-title">Le siège du Mont-Cendre est levé</div>
+                  <div class="news-date">19 mai 2026</div>
+                  <div class="news-excerpt">Après quatorze jours de blocus, les bannières de l'Ordre de la Houle se replient au levant. Les chroniqueurs notent que le bilan reste lourd pour les deux camps.</div>
+                </div>
+                <div class="news-item">
+                  <div class="news-title">Nouveau rituel : la Faille des Eaux Noires</div>
+                  <div class="news-date">15 mai 2026</div>
+                  <div class="news-excerpt">Un rituel mineur permet désormais d'invoquer une faille sur la carte, réduisant les déplacements ennemis dans la zone pendant trois ticks.</div>
+                </div>
+                <div class="news-item">
+                  <div class="news-title">Maintenance hebdomadaire — mardi 21 mai</div>
+                  <div class="news-date">12 mai 2026</div>
+                  <div class="news-excerpt">Une fenêtre de maintenance est planifiée de 04h00 à 05h00. Les ticks de production sont suspendus.</div>
+                </div>
+                <div class="news-item">
+                  <div class="news-title">Concours de chroniques : la Plume du Héraut</div>
+                  <div class="news-date">8 mai 2026</div>
+                  <div class="news-excerpt">Soumettez votre meilleur récit de bataille avant le 30 mai. Les trois plus belles plumes seront publiées et gagneront un emblème exclusif.</div>
+                </div>
+              </div>
+            </section>
+          </main>
+        </div>
+
+        <footer class="play-bar">
+          <div class="play-bar-info">
+            <span>Velmora Launcher v0.1.0</span>
+            <span class="dot">·</span>
+            <span>À jour</span>
+          </div>
+          <button class="btn-gold btn-huge">JOUER</button>
+        </footer>
+      </section>
+    </div>
+  </body>
+</html>

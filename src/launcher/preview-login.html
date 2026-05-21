@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Velmora — Launcher (preview login)</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <style>
+      :root {
+        --font-display: "Liberation Serif", "DejaVu Serif", Georgia, serif;
+        --font-body: "Liberation Sans", "DejaVu Sans", Arial, sans-serif;
+      }
+      * { animation: none !important; }
+    </style>
+  </head>
+  <body>
+    <script>
+      // Stub Tauri pour preview hors-runtime
+      window.__TAURI__ = {
+        core: { invoke: async (cmd) => {
+          if (cmd === "app_version") return "0.1.0";
+          if (cmd === "is_logged_in") return false;
+          return null;
+        }},
+        opener: { openUrl: () => {} },
+        event:  { listen: () => () => {} },
+      };
+    </script>
+    <div id="app">
+      <section id="view-login" class="view">
+        <div class="login-card">
+          <div class="brand">
+            <div class="brand-mark">V</div>
+            <h1>VELMORA</h1>
+            <p class="tagline">Le royaume t'attend, seigneur.</p>
+          </div>
+          <form id="login-form" autocomplete="off">
+            <label>
+              <span>Adresse e-mail</span>
+              <input type="email" name="email" id="login-email" value="seigneur@velmora.cc" />
+            </label>
+            <label>
+              <span>Mot de passe</span>
+              <input type="password" name="password" id="login-password" value="••••••••••" />
+            </label>
+            <button type="submit" class="btn-gold btn-large">Entrer dans le royaume</button>
+          </form>
+          <div class="login-foot">
+            <a href="#">Forger un nouveau seigneur</a>
+            <a href="#">Mot de passe oublié</a>
+          </div>
+        </div>
+        <footer class="version-line">
+          <span>Velmora Launcher v0.1.0</span>
+          <span>·</span>
+          <a href="#">velmora.cc</a>
+        </footer>
+      </section>
+    </div>
+  </body>
+</html>

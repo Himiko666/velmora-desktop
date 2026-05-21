@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Velmora — Launcher</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Bandeau mise à jour -->
+      <div id="update-banner" class="hidden">
+        <span id="update-text"></span>
+        <button id="update-btn" class="btn-gold">Installer</button>
+      </div>
+
+      <!-- Premier lancement : pré-install -->
+      <section id="view-setup" class="view hidden">
+        <div class="setup-card">
+          <div class="brand">
+            <div class="brand-mark">V</div>
+            <h1>VELMORA</h1>
+            <p class="tagline">Préparation du royaume…</p>
+          </div>
+
+          <ul class="setup-steps">
+            <li class="setup-step" data-step="server">
+              <span class="setup-check">○</span>
+              <span class="setup-label">Vérification du royaume</span>
+            </li>
+            <li class="setup-step" data-step="manifest">
+              <span class="setup-check">○</span>
+              <span class="setup-label">Manifeste de ressources</span>
+            </li>
+            <li class="setup-step" data-step="assets">
+              <span class="setup-check">○</span>
+              <span class="setup-label">Téléchargement des ressources</span>
+            </li>
+            <li class="setup-step" data-step="config">
+              <span class="setup-check">○</span>
+              <span class="setup-label">Configuration</span>
+            </li>
+          </ul>
+
+          <div class="setup-progress">
+            <div class="setup-progress-bar" id="setup-bar"></div>
+          </div>
+          <p class="setup-current" id="setup-current">Initialisation…</p>
+
+          <button id="setup-continue" class="btn-gold btn-large hidden">Entrer dans le royaume</button>
+        </div>
+
+        <footer class="version-line">
+          <span>Velmora Launcher v<span id="ver0">·</span></span>
+        </footer>
+      </section>
+
+      <!-- Écran de connexion -->
+      <section id="view-login" class="view">
+        <div class="login-card">
+          <div class="brand">
+            <div class="brand-mark">V</div>
+            <h1>VELMORA</h1>
+            <p class="tagline">Le royaume t'attend, seigneur.</p>
+          </div>
+
+          <form id="login-form" autocomplete="on">
+            <label>
+              <span>Adresse e-mail</span>
+              <input
+                type="email"
+                name="email"
+                id="login-email"
+                required
+                autocomplete="username"
+                placeholder="seigneur@velmora.cc"
+              />
+            </label>
+            <label>
+              <span>Mot de passe</span>
+              <input
+                type="password"
+                name="password"
+                id="login-password"
+                required
+                autocomplete="current-password"
+                placeholder="•••••••••"
+              />
+            </label>
+            <p id="login-error" class="error hidden"></p>
+            <button type="submit" class="btn-gold btn-large" id="login-submit">
+              Entrer dans le royaume
+            </button>
+          </form>
+
+          <div class="login-foot">
+            <a href="#" data-external="https://velmora.cc/inscription">Forger un nouveau seigneur</a>
+            <a href="#" data-external="https://velmora.cc/mot-de-passe-oublie">Mot de passe oublié</a>
+          </div>
+        </div>
+
+        <div class="login-status">
+          <span class="status-dot" id="login-status-dot"></span>
+          <span id="login-status-text">Vérification du royaume…</span>
+        </div>
+
+        <footer class="version-line">
+          <span>Velmora Launcher v<span id="ver1">·</span></span>
+          <span>·</span>
+          <a href="#" data-external="https://velmora.cc">velmora.cc</a>
+        </footer>
+      </section>
+
+      <!-- Écran principal du launcher -->
+      <section id="view-home" class="view hidden">
+        <header class="topbar">
+          <div class="logo-mini">VELMORA</div>
+          <div class="server-status" id="server-status">
+            <span class="status-dot" id="status-dot"></span>
+            <span id="status-text">—</span>
+            <span class="dim" id="status-count"></span>
+          </div>
+          <div class="topbar-right">
+            <button class="icon-btn" id="btn-refresh" title="Rafraîchir">↻</button>
+            <button class="icon-btn" id="btn-settings" title="Paramètres">⚙</button>
+            <button class="icon-btn" id="btn-logout" title="Déconnexion">⎋</button>
+          </div>
+        </header>
+
+        <div class="home-shell">
+          <!-- Sidebar gauche : profil + onglets + quick links -->
+          <aside class="sidebar">
+            <div class="profile-card">
+              <img class="profile-portrait" id="profile-portrait" alt="" />
+              <div class="profile-info">
+                <div class="profile-name" id="profile-name">—</div>
+                <div class="profile-dyn" id="profile-dyn">—</div>
+                <div class="profile-meta">
+                  <span class="badge" id="profile-level">Lv —</span>
+                  <span class="badge gold" id="profile-prestige">⚜ —</span>
+                </div>
+              </div>
+            </div>
+
+            <nav class="tabs">
+              <button class="tab active" data-tab="news">Actualités</button>
+              <button class="tab" data-tab="patch">Notes de patch</button>
+              <button class="tab" data-tab="events">Évènements</button>
+            </nav>
+
+            <div class="quick-links">
+              <div class="quick-title">Royaume</div>
+              <div id="quick-links-list" class="quick-list"></div>
+            </div>
+
+            <div class="next-maint" id="next-maint"></div>
+          </aside>
+
+          <!-- Centre : contenu de l'onglet -->
+          <main class="content">
+            <!-- onglet News -->
+            <section class="tab-pane active" data-pane="news">
+              <h2>Actualités du royaume</h2>
+              <div id="news-list" class="news-list">
+                <div class="news-skeleton"></div>
+                <div class="news-skeleton"></div>
+                <div class="news-skeleton"></div>
+              </div>
+            </section>
+
+            <!-- onglet Patch -->
+            <section class="tab-pane" data-pane="patch">
+              <h2>Notes de patch</h2>
+              <div id="patch-list" class="news-list">
+                <div class="muted">Chargement…</div>
+              </div>
+            </section>
+
+            <!-- onglet Events -->
+            <section class="tab-pane" data-pane="events">
+              <h2>Évènements en cours</h2>
+              <div id="events-list" class="news-list">
+                <div class="muted">Chargement…</div>
+              </div>
+            </section>
+          </main>
+        </div>
+
+        <footer class="play-bar">
+          <div class="play-bar-info">
+            <span id="ver2">Velmora Launcher v·</span>
+            <span class="dot">·</span>
+            <span id="status-line">Prêt</span>
+          </div>
+          <button id="btn-play" class="btn-gold btn-huge">JOUER</button>
+        </footer>
+      </section>
+
+      <!-- Modal paramètres -->
+      <div id="settings-modal" class="modal hidden" role="dialog" aria-modal="true">
+        <div class="modal-backdrop" data-close-modal></div>
+        <div class="modal-card">
+          <header class="modal-head">
+            <h2>Paramètres</h2>
+            <button class="icon-btn" data-close-modal title="Fermer">✕</button>
+          </header>
+          <div class="modal-body">
+            <label class="setting-row">
+              <input type="checkbox" id="set-autostart" />
+              <div>
+                <div class="setting-label">Démarrer Velmora au démarrage de l'ordinateur</div>
+                <div class="setting-hint">Le launcher se lance automatiquement à l'ouverture de session.</div>
+              </div>
+            </label>
+
+            <label class="setting-row">
+              <input type="checkbox" id="set-close-on-play" />
+              <div>
+                <div class="setting-label">Fermer le launcher au lancement du jeu</div>
+                <div class="setting-hint">Sinon, le launcher reste ouvert en arrière-plan.</div>
+              </div>
+            </label>
+
+            <label class="setting-row">
+              <input type="checkbox" id="set-notifs" checked />
+              <div>
+                <div class="setting-label">Notifications de nouvelle missive</div>
+                <div class="setting-hint">Reçoit une notification système quand un seigneur t'écrit, même fenêtre minimisée.</div>
+              </div>
+            </label>
+
+            <div class="setting-section">
+              <div class="setting-label">Taille de la fenêtre de jeu</div>
+              <div class="setting-row inline">
+                <label>Largeur <input type="number" id="set-game-width" min="800" max="3840" step="20" /></label>
+                <label>Hauteur <input type="number" id="set-game-height" min="600" max="2160" step="20" /></label>
+              </div>
+            </div>
+
+            <div class="setting-section danger">
+              <button class="btn-ghost" id="btn-reset-settings">Réinitialiser les paramètres</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./launcher.js"></script>
+  </body>
+</html>
