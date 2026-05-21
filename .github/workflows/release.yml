@@ -102,6 +102,7 @@ jobs:
       # On parcourt récursivement src-tauri/target/ pour trouver toutes les
       # signatures Ed25519 (le chemin diffère selon --target : Linux/Windows
       # → target/release/bundle/, macOS → target/<triple>/release/bundle/).
+      # Note : on évite mapfile (bash 4+) car macOS runner a bash 3.2.
       - name: Upload signature files to release
         if: startsWith(github.ref, 'refs/tags/')
         shell: bash
@@ -115,9 +116,12 @@ jobs:
             echo "src-tauri/target absent — rien à uploader"
             exit 0
           fi
-          mapfile -t SIGS < <(find src-tauri/target -path "*/release/bundle/*" -name "*.sig" -type f)
+          SIGS=()
+          while IFS= read -r line; do
+            SIGS+=("$line")
+          done < <(find src-tauri/target -path "*/release/bundle/*" -name "*.sig" -type f)
           if [ ${#SIGS[@]} -eq 0 ]; then
-            echo "Aucun .sig trouvé"
+            echo "Aucun .sig trouvé sous src-tauri/target — vérifier createUpdaterArtifacts"
             exit 0
           fi
           printf 'Trouvé %d signatures :\n' "${#SIGS[@]}"

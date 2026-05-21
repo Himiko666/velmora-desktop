@@ -1,6 +1,6 @@
 [package]
 name = "velmora-desktop"
-version = "0.1.3"
+version = "0.1.4"
 description = "Velmora — launcher de bureau"
 authors = ["Velmora"]
 edition = "2021"
