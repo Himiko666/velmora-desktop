@@ -93,11 +93,15 @@ jobs:
             Site officiel : https://velmora.cc
           releaseDraft: true
           prerelease: false
+          # Génère les bundles updater (+ leurs .sig) en plus des installeurs
+          # natifs. Indispensable pour tauri-plugin-updater côté launcher.
+          includeUpdaterJson: true
           args: ${{ matrix.args }}
 
       # Plan B : tauri-action n'upload pas les .sig lui-même (bug v0.5).
-      # On parcourt src-tauri/target/release/bundle/ et on attache toutes
-      # les signatures Ed25519 au draft release du tag courant.
+      # On parcourt récursivement src-tauri/target/ pour trouver toutes les
+      # signatures Ed25519 (le chemin diffère selon --target : Linux/Windows
+      # → target/release/bundle/, macOS → target/<triple>/release/bundle/).
       - name: Upload signature files to release
         if: startsWith(github.ref, 'refs/tags/')
         shell: bash
@@ -107,8 +111,11 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -e
-          cd src-tauri/target/release/bundle
-          mapfile -t SIGS < <(find . -name "*.sig" -type f)
+          if [ ! -d src-tauri/target ]; then
+            echo "src-tauri/target absent — rien à uploader"
+            exit 0
+          fi
+          mapfile -t SIGS < <(find src-tauri/target -path "*/release/bundle/*" -name "*.sig" -type f)
           if [ ${#SIGS[@]} -eq 0 ]; then
             echo "Aucun .sig trouvé"
             exit 0
