@@ -379,6 +379,11 @@ async function refreshAll(silent = false) {
     renderProfile(meResp?.user || {});
     renderFeed(feedResp || {});
     setStatus("À jour");
+    // Vérif silencieuse du manifest d'assets : si la version a changé côté
+    // serveur (nouvelle forteresse, icône remplacée…), le backend Rust
+    // re-télécharge en parallèle dans `app_cache_dir/assets/` sans bloquer
+    // l'UI. No-op rapide quand rien n'a bougé.
+    invoke("recheck_manifest").catch((e) => console.debug("recheck_manifest", e));
   } catch (err) {
     const msg = typeof err === "string" ? err : err?.message || "Erreur inconnue.";
     if (msg.includes("authentifié") || msg.includes("Unauthenticated")) {
