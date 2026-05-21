@@ -146,6 +146,7 @@
               <button class="tab active" data-tab="news">Actualités</button>
               <button class="tab" data-tab="patch">Notes de patch</button>
               <button class="tab" data-tab="events">Évènements</button>
+              <button class="tab" data-tab="kingdom">Royaume</button>
             </nav>
 
             <div class="quick-links">
@@ -181,6 +182,37 @@
               <h2>Évènements en cours</h2>
               <div id="events-list" class="news-list">
                 <div class="muted">Chargement…</div>
+              </div>
+            </section>
+
+            <!-- onglet Royaume (statut détaillé) -->
+            <section class="tab-pane" data-pane="kingdom">
+              <h2>Royaume</h2>
+              <div class="kingdom-grid">
+                <div class="kingdom-stat" data-stat="status">
+                  <div class="kingdom-stat-label">Statut</div>
+                  <div class="kingdom-stat-value" id="kingdom-status">—</div>
+                </div>
+                <div class="kingdom-stat" data-stat="online">
+                  <div class="kingdom-stat-label">Seigneurs en ligne</div>
+                  <div class="kingdom-stat-value" id="kingdom-online">—</div>
+                  <div class="kingdom-stat-hint" id="kingdom-online-total"></div>
+                </div>
+                <div class="kingdom-stat" data-stat="tick">
+                  <div class="kingdom-stat-label">Prochain tick</div>
+                  <div class="kingdom-stat-value" id="kingdom-next-tick">—</div>
+                  <div class="kingdom-stat-hint" id="kingdom-tick-interval"></div>
+                </div>
+                <div class="kingdom-stat" data-stat="maintenance">
+                  <div class="kingdom-stat-label">Prochaine maintenance</div>
+                  <div class="kingdom-stat-value" id="kingdom-next-maint">—</div>
+                  <div class="kingdom-stat-hint">Aucune annoncée si vide</div>
+                </div>
+                <div class="kingdom-stat kingdom-stat--wide" data-stat="last">
+                  <div class="kingdom-stat-label">Dernier tick ressources</div>
+                  <div class="kingdom-stat-value" id="kingdom-last-tick">—</div>
+                  <div class="kingdom-stat-hint" id="kingdom-server-time"></div>
+                </div>
               </div>
             </section>
           </main>

@@ -32,3 +32,6 @@ dist/
 .env
 .env.local
 TAURI_SIGNING_PRIVATE_KEY*
+
+# Internal planning (suivi local, hors repo public)
+tasks/

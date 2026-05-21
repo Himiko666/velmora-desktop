@@ -54,6 +54,15 @@ const els = {
   // quick links
   quickLinks: $("#quick-links-list"),
   nextMaint: $("#next-maint"),
+  // kingdom tab (statut détaillé)
+  kingdomStatus: $("#kingdom-status"),
+  kingdomOnline: $("#kingdom-online"),
+  kingdomOnlineTotal: $("#kingdom-online-total"),
+  kingdomNextTick: $("#kingdom-next-tick"),
+  kingdomTickInterval: $("#kingdom-tick-interval"),
+  kingdomNextMaint: $("#kingdom-next-maint"),
+  kingdomLastTick: $("#kingdom-last-tick"),
+  kingdomServerTime: $("#kingdom-server-time"),
   // play bar
   btnPlay: $("#btn-play"),
   statusLine: $("#status-line"),
@@ -229,6 +238,26 @@ function fmtDateTime(s) {
     });
   } catch { return s; }
 }
+// Format relatif type "dans 3 min", "il y a 12 min", "à l'instant".
+function fmtRelative(s) {
+  if (!s) return "";
+  const target = new Date(s).getTime();
+  if (Number.isNaN(target)) return "";
+  const diffSec = Math.round((target - Date.now()) / 1000);
+  const abs = Math.abs(diffSec);
+  if (abs < 30) return "à l'instant";
+  if (abs < 90) return diffSec > 0 ? "dans 1 min" : "il y a 1 min";
+  if (abs < 3600) {
+    const m = Math.round(abs / 60);
+    return diffSec > 0 ? `dans ${m} min` : `il y a ${m} min`;
+  }
+  if (abs < 86400) {
+    const h = Math.round(abs / 3600);
+    return diffSec > 0 ? `dans ${h} h` : `il y a ${h} h`;
+  }
+  const d = Math.round(abs / 86400);
+  return diffSec > 0 ? `dans ${d} j` : `il y a ${d} j`;
+}
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -268,6 +297,35 @@ function updateStatusBadge(s) {
   if (els.nextMaint) {
     const nm = s?.next_maintenance_at;
     els.nextMaint.textContent = nm ? `Prochaine maintenance : ${fmtDateTime(nm)}` : "";
+  }
+
+  // Onglet Royaume (statut détaillé)
+  if (els.kingdomStatus) {
+    els.kingdomStatus.textContent = label;
+    els.kingdomStatus.dataset.status = status;
+  }
+  if (els.kingdomOnline) {
+    els.kingdomOnline.textContent = Number(s?.online_count || 0).toString();
+  }
+  if (els.kingdomOnlineTotal) {
+    const total = Number(s?.total_lords || 0);
+    els.kingdomOnlineTotal.textContent = total > 0 ? `sur ${total} seigneurs forgés` : "";
+  }
+  if (els.kingdomNextTick) {
+    els.kingdomNextTick.textContent = s?.next_tick_at ? fmtRelative(s.next_tick_at) : "—";
+  }
+  if (els.kingdomTickInterval) {
+    const tm = Number(s?.tick_minutes || 0);
+    els.kingdomTickInterval.textContent = tm > 0 ? `intervalle ${tm} min` : "";
+  }
+  if (els.kingdomNextMaint) {
+    els.kingdomNextMaint.textContent = s?.next_maintenance_at ? fmtDateTime(s.next_maintenance_at) : "—";
+  }
+  if (els.kingdomLastTick) {
+    els.kingdomLastTick.textContent = s?.last_tick_at ? fmtRelative(s.last_tick_at) : "—";
+  }
+  if (els.kingdomServerTime) {
+    els.kingdomServerTime.textContent = s?.server_time ? `Heure serveur : ${fmtDateTime(s.server_time)}` : "";
   }
 }
 

@@ -783,6 +783,55 @@ input, button {
   border-bottom: 1px solid var(--line);
 }
 
+/* ============================================================
+   Onglet Royaume — statut détaillé du serveur
+   ============================================================ */
+.kingdom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+}
+.kingdom-stat {
+  position: relative;
+  background: linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.kingdom-stat::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 32px; height: 1px;
+  background: linear-gradient(90deg, var(--gold) 0%, transparent 100%);
+}
+.kingdom-stat--wide { grid-column: 1 / -1; }
+.kingdom-stat-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+.kingdom-stat-value {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  color: var(--parchment);
+  letter-spacing: 0.04em;
+  margin-top: 0.25rem;
+}
+.kingdom-stat[data-stat="status"] .kingdom-stat-value[data-status="online"] { color: var(--success); }
+.kingdom-stat[data-stat="status"] .kingdom-stat-value[data-status="maintenance"] { color: var(--danger); }
+.kingdom-stat[data-stat="status"] .kingdom-stat-value[data-status="offline"] { color: var(--text-mute); }
+.kingdom-stat-hint {
+  font-size: 0.72rem;
+  color: var(--text-mute);
+  font-style: italic;
+  margin-top: 0.2rem;
+}
+
 .news-list { display: flex; flex-direction: column; gap: 0.8rem; }
 .news-item {
   padding: 0.7rem 0.9rem;
