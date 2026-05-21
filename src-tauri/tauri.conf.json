@@ -84,7 +84,7 @@
     "updater": {
       "active": true,
       "dialog": false,
-      "pubkey": "REMPLACE_PAR_CLE_PUBLIQUE_GENEREE_AVEC_tauri_signer_generate",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZDRTYwNDNEODVGQzIwOEEKUldTS0lQeUZQUVRtL000Z09ReFA0dDV1N3VCeTRLSzVUaUliTHRmb3lsN1VTNllVVHZIUkw4TlUK",
       "endpoints": [
         "https://velmora.cc/desktop/latest.json"
       ]
