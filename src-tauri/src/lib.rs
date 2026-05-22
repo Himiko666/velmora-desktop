@@ -4,7 +4,11 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
-use tauri::{Emitter, Manager, State};
+use tauri::{
+    menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Emitter, Manager, State,
+};
 use tauri_plugin_autostart::ManagerExt as AutostartManagerExt;
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_store::StoreExt;
@@ -16,6 +20,14 @@ const SSO_TIMEOUT_SECS: u64 = 10;
 const STORE_FILE: &str = "velmora.json";
 const TOKEN_KEY: &str = "auth_token";
 const DEVICE_NAME: &str = "Velmora Desktop";
+
+/// Cadence du pouls (poll /launcher-pulse) — 60 s : compromis réactivité / charge serveur.
+const PULSE_INTERVAL_SECS: u64 = 60;
+
+/// Clés de persistance du curseur de pouls dans `velmora.json`.
+const PULSE_CURSOR_KEY: &str = "pulse_cursor_at";
+const PULSE_SEEN_CONSTRUCTIONS_KEY: &str = "pulse_seen_constructions";
+const PULSE_LAST_QUESTS_DATE_KEY: &str = "pulse_last_quests_date";
 
 // ---------------- Erreurs ----------------
 
@@ -46,6 +58,29 @@ type AppResult<T> = Result<T, AppError>;
 #[derive(Default)]
 struct AuthState {
     token: Mutex<Option<String>>,
+}
+
+/// Résumé partagé entre la boucle de pouls, le tray et le badge.
+#[derive(Clone, Debug, Default)]
+struct PulseSummary {
+    missives_unread: u32,
+    pending_constructions: u32,
+    queued_construction_jobs: u32,
+    incoming_battles: u32,
+    quests_pending: u32,
+    server_ok: bool,
+}
+
+impl PulseSummary {
+    /// Compteur affiché en badge OS (missives + batailles subies non lues).
+    fn badge_count(&self) -> u32 {
+        self.missives_unread.saturating_add(self.incoming_battles)
+    }
+}
+
+#[derive(Default)]
+struct PulseState {
+    summary: Mutex<PulseSummary>,
 }
 
 // ---------------- Payloads ----------------
@@ -726,12 +761,267 @@ async fn install_update(app: tauri::AppHandle) -> AppResult<()> {
     app.restart();
 }
 
+// ---------------- Pouls du launcher ----------------
+
+/// Lit les ids de chantiers déjà connus au tick précédent (persistés en JSON).
+fn read_seen_construction_ids(app: &tauri::AppHandle) -> std::collections::HashSet<i64> {
+    let mut set = std::collections::HashSet::new();
+    let Ok(store) = app.store(STORE_FILE) else { return set };
+    let Some(value) = store.get(PULSE_SEEN_CONSTRUCTIONS_KEY) else { return set };
+    if let Some(arr) = value.as_array() {
+        for v in arr {
+            if let Some(id) = v.as_i64() {
+                set.insert(id);
+            }
+        }
+    }
+    set
+}
+
+fn write_seen_construction_ids(app: &tauri::AppHandle, ids: &std::collections::HashSet<i64>) {
+    let Ok(store) = app.store(STORE_FILE) else { return };
+    let arr: Vec<serde_json::Value> = ids
+        .iter()
+        .map(|i| serde_json::Value::from(*i))
+        .collect();
+    store.set(PULSE_SEEN_CONSTRUCTIONS_KEY, serde_json::Value::Array(arr));
+    let _ = store.save();
+}
+
+fn read_string_setting(app: &tauri::AppHandle, key: &str) -> Option<String> {
+    let store = app.store(STORE_FILE).ok()?;
+    store.get(key).and_then(|v| v.as_str().map(|s| s.to_string()))
+}
+
+fn write_string_setting(app: &tauri::AppHandle, key: &str, value: &str) {
+    let Ok(store) = app.store(STORE_FILE) else { return };
+    store.set(key, serde_json::Value::String(value.to_string()));
+    let _ = store.save();
+}
+
+/// Un tick de polling : récupère le pouls, détecte les transitions,
+/// notifie, met à jour le résumé partagé (tray + badge).
+async fn pulse_tick(
+    app: &tauri::AppHandle,
+    client: &reqwest::Client,
+) -> Result<(), AppError> {
+    let auth: State<'_, AuthState> = app.state();
+    let Some(token) = read_token(app, &auth) else {
+        return Ok(());
+    };
+
+    let since = read_string_setting(app, PULSE_CURSOR_KEY);
+    let mut req = client
+        .get(format!("{}/launcher-pulse", API_BASE))
+        .bearer_auth(&token)
+        .header("Accept", "application/json");
+    if let Some(s) = since.as_ref() {
+        req = req.query(&[("since", s.as_str())]);
+    }
+
+    let resp = req
+        .send()
+        .await
+        .map_err(AppError::from)?;
+    if !resp.status().is_success() {
+        return Err(AppError::Unexpected(format!("pulse HTTP {}", resp.status())));
+    }
+    let json: serde_json::Value = resp.json().await.map_err(AppError::from)?;
+
+    // Notifs (uniquement si on avait un curseur précédent — cold start silencieux).
+    let cold_start = since.is_none();
+
+    // 1. Missives reçues depuis la dernière vue.
+    if !cold_start {
+        if let Some(arr) = json.get("missives_recent").and_then(|v| v.as_array()) {
+            for m in arr {
+                let sender = m.get("sender").and_then(|s| s.as_str()).unwrap_or("Un seigneur");
+                let subject = m.get("subject").and_then(|s| s.as_str()).unwrap_or("Nouvelle missive");
+                let _ = app.notification().builder()
+                    .title(format!("Velmora — {}", subject))
+                    .body(format!("De : {}", sender))
+                    .show();
+            }
+        }
+
+        // 2. Batailles subies depuis la dernière vue.
+        if let Some(arr) = json.get("battles_received").and_then(|v| v.as_array()) {
+            for b in arr {
+                let attacker = b.get("attacker").and_then(|s| s.as_str()).unwrap_or("Un assaillant");
+                let result = b.get("result").and_then(|s| s.as_str()).unwrap_or("");
+                let _ = app.notification().builder()
+                    .title("Velmora — Forteresse attaquée")
+                    .body(format!("{} vous a assailli ({})", attacker, result))
+                    .show();
+            }
+        }
+    }
+
+    // 3. Chantiers terminés : id présent au tick précédent, absent maintenant.
+    let prev_ids = read_seen_construction_ids(app);
+    let mut current_ids = std::collections::HashSet::new();
+    let mut current_labels: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    if let Some(arr) = json.get("pending_constructions").and_then(|v| v.as_array()) {
+        for c in arr {
+            if let Some(id) = c.get("id").and_then(|v| v.as_i64()) {
+                current_ids.insert(id);
+                if let Some(label) = c.get("label").and_then(|v| v.as_str()) {
+                    current_labels.insert(id, label.to_string());
+                }
+            }
+        }
+    }
+    if !cold_start {
+        for finished_id in prev_ids.difference(&current_ids) {
+            let label = current_labels
+                .get(finished_id)
+                .cloned()
+                .unwrap_or_else(|| "Chantier".to_string());
+            let _ = app.notification().builder()
+                .title("Velmora — Chantier terminé")
+                .body(label)
+                .show();
+        }
+    }
+    write_seen_construction_ids(app, &current_ids);
+
+    // 4. Quêtes du jour fraîchement disponibles (rollover de date).
+    let quests_today_pending = json
+        .get("quests_today_pending")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let quests_today_date = json
+        .get("quests_today_date")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let last_quests_date = read_string_setting(app, PULSE_LAST_QUESTS_DATE_KEY);
+    let date_rolled = last_quests_date
+        .as_ref()
+        .map(|d| d != &quests_today_date)
+        .unwrap_or(true);
+    if !cold_start && date_rolled && quests_today_pending > 0 {
+        let _ = app.notification().builder()
+            .title("Velmora — Quêtes du jour")
+            .body(format!("{} quête(s) disponible(s) au royaume", quests_today_pending))
+            .show();
+    }
+    if !quests_today_date.is_empty() {
+        write_string_setting(app, PULSE_LAST_QUESTS_DATE_KEY, &quests_today_date);
+    }
+
+    // Persiste le curseur (snapshot_at fourni par le serveur — source de vérité).
+    if let Some(snap) = json.get("snapshot_at").and_then(|v| v.as_str()) {
+        write_string_setting(app, PULSE_CURSOR_KEY, snap);
+    }
+
+    // Met à jour le résumé partagé (utilisé par le tray + badge).
+    let summary = PulseSummary {
+        missives_unread: json.get("missives_unread").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+        pending_constructions: current_ids.len() as u32,
+        queued_construction_jobs: json.get("queued_construction_jobs").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+        incoming_battles: json.get("battles_received").and_then(|v| v.as_array()).map(|a| a.len() as u32).unwrap_or(0),
+        quests_pending: quests_today_pending as u32,
+        server_ok: json.get("server_ok").and_then(|v| v.as_bool()).unwrap_or(true),
+    };
+    let pulse_state: State<'_, PulseState> = app.state();
+    if let Ok(mut g) = pulse_state.summary.lock() {
+        *g = summary.clone();
+    }
+    refresh_tray_and_badge(app, &summary);
+
+    // Émet un évènement pour rafraîchir le UI de la fenêtre launcher.
+    let _ = app.emit("launcher://pulse", json);
+
+    Ok(())
+}
+
+/// Construit le menu contextuel du tray à partir du résumé courant.
+fn build_tray_menu(app: &tauri::AppHandle, summary: &PulseSummary) -> Menu<tauri::Wry> {
+    let status_label = if summary.server_ok {
+        "Statut serveur · en ligne"
+    } else {
+        "Statut serveur · indisponible"
+    };
+    let menu = Menu::new(app).expect("create tray menu");
+    let _ = menu.append(&MenuItem::with_id(app, "tray-open", "Ouvrir Velmora", true, None::<&str>).expect("menu open"));
+    let _ = menu.append(&MenuItem::with_id(app, "tray-status", status_label, false, None::<&str>).expect("menu status"));
+    let _ = menu.append(&MenuItem::with_id(
+        app,
+        "tray-missives",
+        format!("Missives non lues · {}", summary.missives_unread),
+        false,
+        None::<&str>,
+    ).expect("menu missives"));
+    let _ = menu.append(&MenuItem::with_id(
+        app,
+        "tray-constructions",
+        format!("Chantiers en cours · {} (file +{})", summary.pending_constructions, summary.queued_construction_jobs),
+        false,
+        None::<&str>,
+    ).expect("menu constructions"));
+    if summary.quests_pending > 0 {
+        let _ = menu.append(&MenuItem::with_id(
+            app,
+            "tray-quests",
+            format!("Quêtes du jour · {}", summary.quests_pending),
+            false,
+            None::<&str>,
+        ).expect("menu quests"));
+    }
+    let _ = menu.append(&PredefinedMenuItem::separator(app).expect("menu sep"));
+    let _ = menu.append(&MenuItem::with_id(app, "tray-quit", "Quitter Velmora", true, None::<&str>).expect("menu quit"));
+    menu
+}
+
+/// Réagit aux clics dans le menu tray.
+fn handle_tray_menu_event(app: &tauri::AppHandle, event: MenuEvent) {
+    match event.id.as_ref() {
+        "tray-open" => focus_best_window(app),
+        "tray-quit" => app.exit(0),
+        _ => {}
+    }
+}
+
+/// Met le focus sur la fenêtre la plus pertinente (game si visible, sinon launcher).
+fn focus_best_window(app: &tauri::AppHandle) {
+    if let Some(game) = app.get_webview_window("game") {
+        if game.is_visible().unwrap_or(false) {
+            let _ = game.unminimize();
+            let _ = game.show();
+            let _ = game.set_focus();
+            return;
+        }
+    }
+    if let Some(launcher) = app.get_webview_window("launcher") {
+        let _ = launcher.unminimize();
+        let _ = launcher.show();
+        let _ = launcher.set_focus();
+    }
+}
+
+/// Met à jour le menu tray et le badge OS à partir d'un nouveau résumé.
+fn refresh_tray_and_badge(app: &tauri::AppHandle, summary: &PulseSummary) {
+    // Badge : missives non lues + batailles subies récentes.
+    let count = summary.badge_count();
+    if let Some(win) = app.get_webview_window("launcher") {
+        let value = if count == 0 { None } else { Some(count as i64) };
+        let _ = win.set_badge_count(value);
+    }
+
+    // Mise à jour des libellés du menu tray.
+    if let Some(tray) = app.tray_by_id("velmora-tray") {
+        let _ = tray.set_menu(Some(build_tray_menu(app, summary)));
+    }
+}
+
 // ---------------- Entry point ----------------
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .manage(AuthState::default())
+        .manage(PulseState::default())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("launcher") {
                 let _ = window.unminimize();
@@ -787,56 +1077,43 @@ pub fn run() {
                 });
             }
 
-            // Polling background : toutes les 120 s, on appelle /api/mobile/dashboard
-            // pour détecter une nouvelle missive et notifier nativement l'utilisateur
-            // — même quand le launcher est minimisé. Le polling ne tourne que si un
-            // token est présent ; il échoue silencieusement le reste du temps.
+            // Tray icon natif (Tauri 2) — toujours présent, permet de revenir
+            // au launcher / game même après fermeture des fenêtres.
+            let tray_app = app.handle().clone();
+            let initial_menu = build_tray_menu(&tray_app, &PulseSummary { server_ok: true, ..PulseSummary::default() });
+            let _ = TrayIconBuilder::with_id("velmora-tray")
+                .icon(app.default_window_icon().cloned().expect("default icon"))
+                .tooltip("Velmora")
+                .menu(&initial_menu)
+                .on_menu_event(|app, event| handle_tray_menu_event(app, event))
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        focus_best_window(tray.app_handle());
+                    }
+                })
+                .build(app);
+
+            // Polling background : toutes les PULSE_INTERVAL_SECS, on appelle
+            // /api/mobile/launcher-pulse (endpoint compact dédié) pour détecter
+            // les 4 types d'évènements à notifier nativement :
+            //   - nouvelle missive
+            //   - chantier terminé (id présent au tick N, absent au tick N+1)
+            //   - bataille subie
+            //   - quêtes du jour fraîchement disponibles
+            // L'état (curseur ISO, ids déjà vus, dernière date de quêtes) est
+            // persisté dans le store pour survivre aux redémarrages — anti
+            // re-notif après reboot.
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                let mut last_missive_id: Option<i64> = None;
                 let client = http_client();
                 loop {
-                    tokio::time::sleep(Duration::from_secs(120)).await;
-                    let state: State<'_, AuthState> = handle.state();
-                    let Some(token) = read_token(&handle, &state) else { continue };
-
-                    let resp = match client
-                        .get(format!("{}/dashboard", API_BASE))
-                        .bearer_auth(&token)
-                        .header("Accept", "application/json")
-                        .send()
-                        .await
-                    {
-                        Ok(r) if r.status().is_success() => r,
-                        _ => continue,
-                    };
-                    let Ok(json): Result<serde_json::Value, _> = resp.json().await else { continue };
-                    let Some(missives) = json.get("missives").and_then(|m| m.as_array()) else { continue };
-                    let Some(first) = missives.first() else { continue };
-                    let new_id = first.get("id").and_then(|v| v.as_i64());
-
-                    if let (Some(prev), Some(new_id)) = (last_missive_id, new_id) {
-                        if new_id > prev {
-                            let sender = first
-                                .get("sender")
-                                .and_then(|s| s.get("name"))
-                                .and_then(|n| n.as_str())
-                                .unwrap_or("Un seigneur");
-                            let title = first
-                                .get("subject")
-                                .and_then(|t| t.as_str())
-                                .unwrap_or("Nouvelle missive");
-                            let _ = handle
-                                .notification()
-                                .builder()
-                                .title(format!("Velmora — {}", title))
-                                .body(format!("De : {}", sender))
-                                .show();
-                        }
-                    }
-                    if new_id.is_some() {
-                        last_missive_id = new_id;
-                    }
+                    tokio::time::sleep(Duration::from_secs(PULSE_INTERVAL_SECS)).await;
+                    let _ = pulse_tick(&handle, &client).await;
                 }
             });
 
