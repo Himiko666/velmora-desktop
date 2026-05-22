@@ -7,7 +7,8 @@ use std::time::Duration;
 use tauri::{
     menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager, State,
+    webview::WebviewBuilder,
+    Emitter, LogicalPosition, LogicalSize, Manager, State, WebviewUrl,
 };
 use tauri_plugin_autostart::ManagerExt as AutostartManagerExt;
 use tauri_plugin_notification::NotificationExt;
@@ -23,6 +24,13 @@ const DEVICE_NAME: &str = "Velmora Desktop";
 
 /// Cadence du pouls (poll /launcher-pulse) — 60 s : compromis réactivité / charge serveur.
 const PULSE_INTERVAL_SECS: u64 = 60;
+
+/// Hauteur (en points DP) de la title bar custom rendue par `src/game/index.html`.
+/// Doit rester synchronisée avec la variable `--titlebar-h` du shell.
+const GAME_TITLE_BAR_DP: f64 = 38.0;
+
+/// Label du child webview qui rend velmora.cc à l'intérieur de la fenêtre `game`.
+const GAME_CONTENT_LABEL: &str = "game-content";
 
 /// Clés de persistance du curseur de pouls dans `velmora.json`.
 const PULSE_CURSOR_KEY: &str = "pulse_cursor_at";
@@ -642,6 +650,58 @@ async fn request_sso_url(token: &str) -> AppResult<String> {
     Ok(parsed.url)
 }
 
+/// Calcule la taille en points logiques du child webview qui doit occuper la
+/// zone sous la title bar custom. Retourne `None` si la fenêtre n'a pas de
+/// taille mesurable (cas dégénéré, fenêtre minimisée juste avant le calcul).
+fn content_logical_rect(game: &tauri::WebviewWindow) -> Option<(LogicalSize<f64>, LogicalPosition<f64>)> {
+    let inner = game.inner_size().ok()?;
+    let scale = game.scale_factor().unwrap_or(1.0).max(0.0001);
+    let w = (inner.width as f64 / scale).max(1.0);
+    let h = ((inner.height as f64 / scale) - GAME_TITLE_BAR_DP).max(1.0);
+    Some((
+        LogicalSize::new(w, h),
+        LogicalPosition::new(0.0, GAME_TITLE_BAR_DP),
+    ))
+}
+
+/// Repositionne le child webview `game-content` après un resize / maximize.
+fn reposition_game_content(app: &tauri::AppHandle) {
+    let Some(game) = app.get_webview_window("game") else { return };
+    let Some(content) = app.get_webview(GAME_CONTENT_LABEL) else { return };
+    let Some((size, pos)) = content_logical_rect(&game) else { return };
+    let _ = content.set_position(pos);
+    let _ = content.set_size(size);
+}
+
+/// Crée — ou réutilise — le child webview qui rend velmora.cc à l'intérieur
+/// de la fenêtre `game`. Si le child existe déjà, on se contente d'y naviguer.
+fn ensure_game_content(app: &tauri::AppHandle, url: url::Url) -> AppResult<()> {
+    let game = app
+        .get_webview_window("game")
+        .ok_or_else(|| AppError::Internal("fenêtre 'game' absente".into()))?;
+
+    if let Some(content) = app.get_webview(GAME_CONTENT_LABEL) {
+        content
+            .navigate(url)
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+        return Ok(());
+    }
+
+    let (size, pos) = content_logical_rect(&game)
+        .ok_or_else(|| AppError::Internal("taille fenêtre game indisponible".into()))?;
+
+    let app_for_event = app.clone();
+    let builder = WebviewBuilder::new(GAME_CONTENT_LABEL, WebviewUrl::External(url))
+        .on_page_load(move |_webview, _payload| {
+            let _ = app_for_event.emit("game-content-loaded", ());
+        });
+
+    game.add_child(builder, pos, size)
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+    Ok(())
+}
+
 #[tauri::command]
 async fn launch_game(app: tauri::AppHandle, state: State<'_, AuthState>) -> AppResult<()> {
     let token = read_token(&app, &state).ok_or(AppError::Unauthenticated)?;
@@ -661,19 +721,21 @@ async fn launch_game(app: tauri::AppHandle, state: State<'_, AuthState>) -> AppR
         }
     };
 
+    let parsed = url::Url::parse(&target_url)
+        .map_err(|e| AppError::Internal(format!("URL SSO invalide : {e}")))?;
+
     let game = app
         .get_webview_window("game")
         .ok_or_else(|| AppError::Internal("fenêtre 'game' absente".into()))?;
 
-    // Navigue la WebView vers l'URL signée (ou l'URL brute en fallback).
-    let parsed = url::Url::parse(&target_url)
-        .map_err(|e| AppError::Internal(format!("URL SSO invalide : {e}")))?;
-    game.navigate(parsed)
-        .map_err(|e| AppError::Internal(e.to_string()))?;
-
+    // On affiche d'abord la fenêtre (avec son shell + splash) pour que
+    // l'utilisateur ait un retour visuel pendant que le child webview se monte.
     game.show().map_err(|e| AppError::Internal(e.to_string()))?;
     game.set_focus()
         .map_err(|e| AppError::Internal(e.to_string()))?;
+
+    // Monte ou ré-utilise le child webview qui héberge velmora.cc.
+    ensure_game_content(&app, parsed)?;
 
     if let Some(launcher) = app.get_webview_window("launcher") {
         let _ = launcher.hide();
@@ -1064,16 +1126,23 @@ pub fn run() {
         ])
         .setup(|app| {
             // Quand la fenêtre game se ferme, on ramène le launcher au premier plan.
+            // Quand elle est redimensionnée, on repositionne le child webview qui
+            // héberge velmora.cc sous la title bar custom.
             let app_handle = app.handle().clone();
             if let Some(game) = app.get_webview_window("game") {
                 let handle = app_handle.clone();
-                game.on_window_event(move |event| {
-                    if let tauri::WindowEvent::CloseRequested { .. } = event {
+                game.on_window_event(move |event| match event {
+                    tauri::WindowEvent::CloseRequested { .. } => {
                         if let Some(launcher) = handle.get_webview_window("launcher") {
                             let _ = launcher.show();
                             let _ = launcher.set_focus();
                         }
                     }
+                    tauri::WindowEvent::Resized(_)
+                    | tauri::WindowEvent::ScaleFactorChanged { .. } => {
+                        reposition_game_content(&handle);
+                    }
+                    _ => {}
                 });
             }
 
