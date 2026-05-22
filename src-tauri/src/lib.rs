@@ -653,9 +653,9 @@ async fn request_sso_url(token: &str) -> AppResult<String> {
 /// Calcule la taille en points logiques du child webview qui doit occuper la
 /// zone sous la title bar custom. Retourne `None` si la fenêtre n'a pas de
 /// taille mesurable (cas dégénéré, fenêtre minimisée juste avant le calcul).
-fn content_logical_rect(game: &tauri::WebviewWindow) -> Option<(LogicalSize<f64>, LogicalPosition<f64>)> {
-    let inner = game.inner_size().ok()?;
-    let scale = game.scale_factor().unwrap_or(1.0).max(0.0001);
+fn content_logical_rect(window: &tauri::Window) -> Option<(LogicalSize<f64>, LogicalPosition<f64>)> {
+    let inner = window.inner_size().ok()?;
+    let scale = window.scale_factor().unwrap_or(1.0).max(0.0001);
     let w = (inner.width as f64 / scale).max(1.0);
     let h = ((inner.height as f64 / scale) - GAME_TITLE_BAR_DP).max(1.0);
     Some((
@@ -666,9 +666,9 @@ fn content_logical_rect(game: &tauri::WebviewWindow) -> Option<(LogicalSize<f64>
 
 /// Repositionne le child webview `game-content` après un resize / maximize.
 fn reposition_game_content(app: &tauri::AppHandle) {
-    let Some(game) = app.get_webview_window("game") else { return };
+    let Some(window) = app.get_window("game") else { return };
     let Some(content) = app.get_webview(GAME_CONTENT_LABEL) else { return };
-    let Some((size, pos)) = content_logical_rect(&game) else { return };
+    let Some((size, pos)) = content_logical_rect(&window) else { return };
     let _ = content.set_position(pos);
     let _ = content.set_size(size);
 }
@@ -676,9 +676,9 @@ fn reposition_game_content(app: &tauri::AppHandle) {
 /// Crée — ou réutilise — le child webview qui rend velmora.cc à l'intérieur
 /// de la fenêtre `game`. Si le child existe déjà, on se contente d'y naviguer.
 fn ensure_game_content(app: &tauri::AppHandle, url: url::Url) -> AppResult<()> {
-    let game = app
-        .get_webview_window("game")
-        .ok_or_else(|| AppError::Internal("fenêtre 'game' absente".into()))?;
+    let window = app
+        .get_window("game")
+        .ok_or_else(|| AppError::Internal("window 'game' absente".into()))?;
 
     if let Some(content) = app.get_webview(GAME_CONTENT_LABEL) {
         content
@@ -687,7 +687,7 @@ fn ensure_game_content(app: &tauri::AppHandle, url: url::Url) -> AppResult<()> {
         return Ok(());
     }
 
-    let (size, pos) = content_logical_rect(&game)
+    let (size, pos) = content_logical_rect(&window)
         .ok_or_else(|| AppError::Internal("taille fenêtre game indisponible".into()))?;
 
     let app_for_event = app.clone();
@@ -696,7 +696,8 @@ fn ensure_game_content(app: &tauri::AppHandle, url: url::Url) -> AppResult<()> {
             let _ = app_for_event.emit("game-content-loaded", ());
         });
 
-    game.add_child(builder, pos, size)
+    window
+        .add_child(builder, pos, size)
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
     Ok(())
