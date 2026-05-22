@@ -832,33 +832,184 @@ input, button {
   margin-top: 0.2rem;
 }
 
-.news-list { display: flex; flex-direction: column; gap: 0.8rem; }
+/* ============================================================
+   Feed (news / patch notes / events) — Stèle gravée :
+   filet doré vertical fin à gauche, aucune boîte ni bordure
+   complète, espacement large, typographie au repos.
+   ============================================================ */
+.news-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
 .news-item {
-  padding: 0.7rem 0.9rem;
-  background: var(--bg-2);
-  border-left: 2px solid var(--gold-deep);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+  padding: 0.2rem 0 0.2rem 1.1rem;
+  border-left: 1.5px solid var(--gold-deep);
+  /* Pas de background, pas de border-radius : on n'enferme rien. */
+  /* Pas clickable — pas de cursor pointer ni hover de fond. */
 }
-.news-item:hover { border-left-color: var(--gold); background: var(--bg-3); }
-.news-item .news-title {
+
+.news-item:hover {
+  border-left-color: var(--gold);
+}
+
+.news-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  margin-bottom: 0.55rem;
+}
+
+.news-title {
+  font-family: var(--font-display);
   font-weight: 600;
+  font-size: 0.96rem;
   color: var(--parchment);
-  font-size: 0.88rem;
-  margin-bottom: 0.2rem;
+  letter-spacing: 0.02em;
+  margin: 0;
+  line-height: 1.25;
 }
-.news-item .news-date {
+
+.news-date {
+  font-size: 0.68rem;
+  color: var(--text-mute);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.news-excerpt {
+  margin-top: 0.35rem;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+/* ───────────── Variante --rich : patch notes au long cours ───────────── */
+.news-item--rich {
+  padding-left: 1.4rem;
+  padding-right: 0.2rem;
+}
+
+.news-body {
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+
+.news-body > * + * {
+  margin-top: 0.65rem;
+}
+
+.news-body p {
+  margin: 0;
+  color: var(--text);
+}
+
+.news-body h2,
+.news-body h3,
+.news-body h4 {
+  font-family: var(--font-display);
+  color: var(--gold-bright);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin: 1rem 0 0.3rem 0;
+}
+
+.news-body h2 { font-size: 0.88rem; }
+.news-body h3 { font-size: 0.78rem; opacity: 0.9; }
+.news-body h4 { font-size: 0.72rem; opacity: 0.85; }
+
+.news-body strong { color: var(--parchment); font-weight: 600; }
+.news-body em { color: var(--gold); font-style: italic; }
+.news-body small { font-size: 0.72rem; color: var(--text-mute); }
+
+.news-body ul,
+.news-body ol {
+  list-style: none;
+  padding: 0;
+  margin: 0.35rem 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.news-body li {
+  position: relative;
+  padding-left: 1.05rem;
+  color: var(--text);
+}
+
+.news-body li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  background: var(--gold-deep);
+  transform: rotate(45deg);
+}
+
+.news-body ul ul {
+  margin-top: 0.25rem;
+}
+
+.news-body ul ul li::before {
+  background: transparent;
+  border: 1px solid var(--gold-deep);
+}
+
+.news-body hr {
+  border: none;
+  height: 14px;
+  margin: 1.2rem 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 14'><path d='M0 7 L80 7 M120 7 L200 7' stroke='%238a7641' stroke-width='1' fill='none'/><path d='M100 1 L106 7 L100 13 L94 7 Z' fill='%23c8b67a' stroke='%238a7641' stroke-width='0.8'/></svg>");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.news-body figure {
+  margin: 1rem 0;
+  padding: 0;
+}
+
+.news-body img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  border-radius: 4px;
+  box-shadow: 0 6px 20px -8px rgba(0,0,0,0.6);
+  border: 1px solid var(--line);
+}
+
+.news-body figcaption {
+  margin-top: 0.45rem;
+  text-align: center;
   font-size: 0.7rem;
   color: var(--text-mute);
-  letter-spacing: 0.05em;
+  font-style: italic;
+  letter-spacing: 0.04em;
 }
-.news-item .news-excerpt {
-  margin-top: 0.4rem;
-  color: var(--text-dim);
-  font-size: 0.78rem;
-  line-height: 1.4;
+
+.news-body mark {
+  background: rgba(200, 182, 122, 0.14);
+  color: var(--gold-bright);
+  padding: 0.05em 0.3em;
+  border-radius: 2px;
 }
+
+.news-body q {
+  font-style: italic;
+  color: var(--parchment);
+  quotes: "« " " »";
+}
+.news-body q::before { content: open-quote; color: var(--gold); }
+.news-body q::after { content: close-quote; color: var(--gold); }
 .news-skeleton {
   height: 72px;
   background: linear-gradient(90deg, var(--bg-2) 0%, var(--bg-3) 50%, var(--bg-2) 100%);

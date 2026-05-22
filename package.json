@@ -1,6 +1,6 @@
 {
   "name": "velmora-desktop",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Application de bureau Velmora (Tauri) — wrapper natif vers https://velmora.cc",
   "private": true,
   "type": "module",

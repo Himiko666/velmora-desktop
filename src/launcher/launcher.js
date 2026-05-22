@@ -421,19 +421,85 @@ function renderItems(container, items, kind) {
     container.innerHTML = `<div class="muted">Rien à signaler.</div>`;
     return;
   }
+  // Pour les patch notes : on rend le body_html riche (admin-curé, source de
+  // confiance via API authentifiée). Pour news/events on garde l'excerpt
+  // condensé — listes longues, lisibilité prioritaire.
+  const useRichBody = kind === "patch";
   container.innerHTML = items
     .map((n) => {
       const title = n?.title || "—";
       const date = fmtDate(n?.published_at || n?.date || n?.created_at);
-      const body = n?.excerpt || n?.body || n?.summary || "";
       const tag = n?.tag ? `<span class="badge gold" style="margin-right:0.4rem">${escapeHtml(n.tag)}</span>` : "";
-      return `<div class="news-item">
-        <div class="news-title">${tag}${escapeHtml(title)}</div>
-        <div class="news-date">${escapeHtml(date)}</div>
-        ${body ? `<div class="news-excerpt">${escapeHtml(body)}</div>` : ""}
-      </div>`;
+      let bodyHtml = "";
+      if (useRichBody && typeof n?.body_html === "string" && n.body_html.trim() !== "") {
+        bodyHtml = `<div class="news-body">${sanitizeAdminHtml(n.body_html)}</div>`;
+      } else {
+        const txt = n?.excerpt || n?.body || n?.summary || "";
+        if (txt) bodyHtml = `<div class="news-excerpt">${escapeHtml(txt)}</div>`;
+      }
+      return `<article class="news-item${useRichBody ? " news-item--rich" : ""}">
+        <header class="news-head">
+          <h4 class="news-title">${tag}${escapeHtml(title)}</h4>
+          <time class="news-date">${escapeHtml(date)}</time>
+        </header>
+        ${bodyHtml}
+      </article>`;
     })
     .join("");
+}
+
+/**
+ * Sanitiseur minimal : on autorise un vocabulaire HTML restreint pour les
+ * patch notes (h2/h3/h4, p, ul/ol/li, strong/em, br, hr, svg + path/circle
+ * /rect/line/polyline/polygon/g + attributs viewBox/d/cx/cy/r/x/y/width
+ * /height/fill/stroke/stroke-width/opacity/transform). On vire le reste —
+ * notamment script, iframe, on* handlers et style externe.
+ */
+function sanitizeAdminHtml(raw) {
+  const template = document.createElement("template");
+  template.innerHTML = String(raw);
+  const ALLOWED = new Set([
+    "H2","H3","H4","P","UL","OL","LI","STRONG","EM","BR","HR","SPAN","DIV",
+    "FIGURE","FIGCAPTION","IMG","SMALL","MARK","Q",
+    "SVG","PATH","CIRCLE","RECT","LINE","POLYLINE","POLYGON","G","DEFS",
+    "LINEARGRADIENT","RADIALGRADIENT","STOP","TITLE","TSPAN","TEXT",
+  ]);
+  const ALLOWED_ATTRS = new Set([
+    "viewbox","d","cx","cy","r","x","y","x1","x2","y1","y2","width","height",
+    "fill","stroke","stroke-width","stroke-linejoin","stroke-linecap",
+    "opacity","transform","points","class","aria-hidden","preserveaspectratio",
+    "offset","stop-color","stop-opacity","gradientunits","gradienttransform",
+    "id","href","xlink:href","xmlns",
+    "src","alt","loading","decoding","srcset","sizes",
+  ]);
+  const walk = (node) => {
+    [...node.childNodes].forEach((child) => {
+      if (child.nodeType === Node.ELEMENT_NODE) {
+        if (!ALLOWED.has(child.tagName.toUpperCase())) {
+          child.replaceWith(...child.childNodes);
+          return;
+        }
+        [...child.attributes].forEach((attr) => {
+          const name = attr.name.toLowerCase();
+          if (!ALLOWED_ATTRS.has(name)) {
+            child.removeAttribute(attr.name);
+            return;
+          }
+          // src / href : seulement https:// ou chemin relatif velmora.cc.
+          if (name === "src" || name === "href" || name === "xlink:href") {
+            const v = String(attr.value || "").trim();
+            const safe = /^https:\/\/velmora\.cc\//i.test(v) || /^https:\/\/[a-z0-9.-]+\.velmora\.cc\//i.test(v);
+            if (!safe) { child.removeAttribute(attr.name); }
+          }
+        });
+        walk(child);
+      } else if (child.nodeType === Node.COMMENT_NODE) {
+        child.remove();
+      }
+    });
+  };
+  walk(template.content);
+  return template.innerHTML;
 }
 
 function renderQuickLinks(links) {
